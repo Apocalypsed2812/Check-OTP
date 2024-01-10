@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\OTPMail;
 use Twilio\Rest\Client;
+use HTTP_Request2;
 // use GuzzleHttp\Client;
 
 class AuthController extends Controller
@@ -50,6 +51,10 @@ class AuthController extends Controller
                 if($request->session()->has('registered')){
                     $request->session()->forget('registered');
                 }
+
+                $request->session()->put('login', true);
+                $request->session()->put('username', $user->username);
+
                 return redirect('/home');
             }
             else{
@@ -99,7 +104,6 @@ class AuthController extends Controller
             'status' => 'active',
         ]);
         
-        
 
         // Lấy ra số điện thoại và thêm +84 vào đầu
         $phoneNumber = substr_replace($data['phone'], '+84', 0, 1);
@@ -108,17 +112,8 @@ class AuthController extends Controller
         // $this->sendOTP($data['email'], $otp);
 
         // Gửi OTP về số điện thoại tương ứng
-        // $this->sendSMSNotification($phoneNumber, $otp);
+        $this->sendSMSNotification($phoneNumber, $otp);
 
-        // Gửi OTP về account viber
-        // $this->setWebHoot();
-        // $this->sendViberOTP("+84 783664025", $otp);
-        // echo $this->sendViberOTP("+84 783664025", $otp);
-
-        // Gửi OTP về số điện thoại tương ứng
-        if(!$this->sendOTPWhatsapp($phoneNumber, $otp)){
-            return redirect()->back()->with('error', 'Has Ocurred Error');
-        }
         // Lưu các giá trị account và otp vào database
         $otpRecord->save();
         $account->save();
@@ -127,6 +122,11 @@ class AuthController extends Controller
         $request->session()->put('registered', true);
 
         return redirect('/otp')->with(['otp'=> $otp, 'email' => $data['email']]);
+    }
+
+    public function logout(Request $request){
+        $request->session()->forget('login');
+        return redirect('/login');
     }
 
     public function checkOTP(Request $request){
@@ -169,8 +169,8 @@ class AuthController extends Controller
     {
         try{
             // Cấu hình twilio
-            $twilioSid = 'ACa223b7f4dd8962b29d814d76039900a7';
-            $twilioToken = '42fee8b72f0b063e03bd263744f7445b';
+            $twilioSid = 'ACfb993e5f595f8d2d5990e204ae844874';
+            $twilioToken = 'f21c84e58e6ce55736ed639f5e1b811e';
             $twilioPhoneNumber = 'whatsapp:+14155238886';
 
             $twilio = new Client($twilioSid, $twilioToken);
@@ -194,9 +194,9 @@ class AuthController extends Controller
     private function sendSMSNotification($phoneNumber, $otp)
     {
         // Cấu hình twilio
-        $twilioSid = 'ACa223b7f4dd8962b29d814d76039900a7';
-        $twilioToken = '42fee8b72f0b063e03bd263744f7445b';
-        $twilioPhoneNumber = '+13048400928';
+        $twilioSid = 'ACfb993e5f595f8d2d5990e204ae844874';
+        $twilioToken = 'f21c84e58e6ce55736ed639f5e1b811e';
+        $twilioPhoneNumber = '+17039978266';
 
         $twilio = new Client($twilioSid, $twilioToken);
 
@@ -246,4 +246,53 @@ class AuthController extends Controller
             return response()->json(['error' => 'HTTP error'], $statusCode);
         }
     }
+
+    public function sendOTPWithWhatsappAPI($phone, $otp) {
+        $phoneNumber = substr_replace($phone, '84', 0, 1);
+        $request = new HTTP_Request2();
+        $request->setUrl('https://e1gzj2.api.infobip.com/whatsapp/1/message/template');
+        $request->setMethod(HTTP_Request2::METHOD_POST);
+        $request->setConfig(array(
+            'follow_redirects' => TRUE
+        ));
+        $request->setHeader(array(
+            'Authorization' => 'App c1b048b84c903b12ad8d9eda81cbe1a5-f39056f8-fbe0-4064-bee8-9d6aeac5b59c',
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json'
+        ));
+    
+        // Thay đổi số điện thoại và nội dung tin nhắn tại đây
+        $requestBody = '{
+            "messages": [
+                {
+                    "from": "447860099299",
+                    "to": "'.$phoneNumber.'",
+                    "messageId": "c1fccd52-e32f-4dd4-b36a-b90f5cae0f07",
+                    "content": {
+                        "templateName": "welcome_multiple_languages",
+                        "templateData": {
+                            "body": {
+                                "placeholders": ["'.$otp.'"]
+                            }
+                        },
+                        "language": "en"
+                    }
+                }
+            ]
+        }';
+    
+        $request->setBody($requestBody);
+    
+        try {
+            $response = $request->send();
+            if ($response->getStatus() == 200) {
+                echo $response->getBody();
+            } else {
+                echo 'Unexpected HTTP status: ' . $response->getStatus() . ' ' . $response->getReasonPhrase();
+            }
+        } catch (HTTP_Request2_Exception $e) {
+            echo 'Error: ' . $e->getMessage();
+        }
+    }
+    
 }

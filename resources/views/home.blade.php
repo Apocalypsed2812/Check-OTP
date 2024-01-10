@@ -12,7 +12,17 @@
 <body>
     <div class="container py-5">
         <h2 class="text-center">Home Page</h2>
-        <button class="btn btn-primary my-3" data-bs-toggle="modal" data-bs-target="#addProduct">Add</button>
+        <div class="d-flex justify-content-between">
+            <button class="btn btn-primary my-3" data-bs-toggle="modal" data-bs-target="#addProduct">Add</button>
+            <div>
+                @if(session()->has('username'))
+                    <span>
+                        Welcome <b>{{ session('username') }}</b>
+                    </span>
+                @endif
+                <a href="{{ url('/logout') }}" class="mx-3 text-danger">Logout</a>
+            </div>
+        </div>
         <table class="table">
             <thead class="text-center">
                 <th>Name</th>
